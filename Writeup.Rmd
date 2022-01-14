@@ -1,0 +1,104 @@
+---
+title: "AssignmentWriteup"
+author: "Bodhi Goswami"
+date: "1/12/2022"
+output: html_document
+---
+**Practical Machine Learning Assignment Writeup**
+
+```{r setup, include=FALSE}
+train <- read.csv("G:/My Drive/Data Science/R - Working Directories/Practice/Practice V1/data/groupware/pml-training.csv",
+                     na.strings = c("","NA"))
+test <- read.csv("G:/My Drive/Data Science/R - Working Directories/Practice/Practice V1/data/groupware/pml-testing.csv",
+                     na.strings = c("","NA"))
+test$classe <- rep("Hello",nrow(test))
+```
+
+The data is to predict the variable *classe* which describes how well an exercise was done. My assumption was NA values concludes that data was not recorded, in other words that exercise was not done. Hence i filled in all NA values as Zero. For this initially I created a function to fill NA values to Zero, changed all data that should be numeric to numeric variable and changed classe variable to factor.
+
+```{r}
+processme <- function(dataset) {
+
+  dataset[is.na(dataset)==TRUE] <- 0
+  dataset[dataset == "#DIV/0!"] <- 0
+
+  dataset[is.na(dataset)==TRUE] <- 0
+  dataset[dataset == "#DIV/0!"] <- 0
+
+  dataset$cvtd_timestamp <- NULL
+
+  dataset$new_window <- ifelse(dataset$new_window == "yes", 1, 0)
+
+  character_ok <- c("user_name","classe")
+  dataset_charok <- dataset[,character_ok]
+  dataset_tonum <- dataset[,!(names(dataset) %in% (character_ok))]
+  dataset_tonum <- data.frame(sapply(dataset_tonum, as.numeric))
+
+  dataset<- cbind(dataset_tonum,dataset_charok); rm(dataset_tonum,dataset_charok,character_ok)
+  dataset$classe <- as.factor(dataset$classe)
+
+  return(dataset)
+}
+
+train <- processme(train)
+test <- processme(test)
+```
+
+Each variable provides a value for ID number of the individual, denoted by X. Below is a plot of a variable "pitch arm" over "X".
+
+```{r}
+g = ggplot (data=train, aes(x = X, y = pitch_arm))
+g = g + geom_line(col="red")
+g
+```
+
+I used GBM model to predict the outcome.I used **crossvalidation** by using "repeatedcv" option in trainControl.
+
+```{r, eval=FALSE}
+trainID <- createDataPartition(train$classe, p=0.7, list = FALSE)
+training <- train[trainID,] ; val <- train[-trainID,]
+
+myControl <- trainControl(method = "repeatedcv", number = 5, repeats = 3)
+
+#Train data
+modFit.gbm <- train(classe~.-X-user_name, data = training,
+                    tuneGrid = expand.grid(n.trees = 150,
+                                           interaction.depth=3,
+                                           shrinkage = 0.1,
+                                           n.minobsinnode = 10),
+                    method = "gbm",
+                    trControl = myControl, verbose = FALSE)
+
+pred_gbm <- predict(modFit.gbm, val)
+```
+
+```{r}
+confusionMatrix(pred_gbm,val$classe)
+confusionMatrix(predict(modFit.gbm, training),training$classe)
+```
+
+We checked the Accuracy of the training dataset and found that to be 0.999. However the Accuracy of validation dataset gives a value of 0.994, which is lesser than the training data. This is expected since variance of the output will influence a lower accuracy. We can conclude this is our out of sample error. So, the expected out of sample error is 0.06 or 6%.
+
+I ran the model with entire train data to create my final prediction.
+
+```{r, eval=FALSE}
+#Running this model on entire data
+#Train data
+modFit.gbm.fullmodel <- train(classe~.-X-user_name, data = train,
+                    tuneGrid = expand.grid(n.trees = 150,
+                                           interaction.depth=3,
+                                           shrinkage = 0.1,
+                                           n.minobsinnode = 10),
+                    method = "gbm",
+                    trControl = myControl, verbose = FALSE)
+
+pred <- predict(modFit.gbm.fullmodel,test)
+predicted_data <- data.frame(X = test$X,
+                             user_name = test$user_name,
+                             classe = pred)
+
+```
+
+Upon testing out a few algorithms I found out this model works best for the given data. That drove me to make the choices I made.
+
+Hope you had a good read. This was short and informative. I appreciate your time.
