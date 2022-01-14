@@ -7,6 +7,7 @@ output: html_document
 **Practical Machine Learning Assignment Writeup**
 
 ```{r setup, include=FALSE}
+require(caret) ; require(ggplot2) ; require(dplyr); require(e1071)
 train <- read.csv("G:/My Drive/Data Science/R - Working Directories/Practice/Practice V1/data/groupware/pml-training.csv",
                      na.strings = c("","NA"))
 test <- read.csv("G:/My Drive/Data Science/R - Working Directories/Practice/Practice V1/data/groupware/pml-testing.csv",
@@ -72,7 +73,7 @@ modFit.gbm <- train(classe~.-X-user_name, data = training,
 pred_gbm <- predict(modFit.gbm, val)
 ```
 
-```{r}
+```{r,eval=FALSE}
 confusionMatrix(pred_gbm,val$classe)
 confusionMatrix(predict(modFit.gbm, training),training$classe)
 ```
